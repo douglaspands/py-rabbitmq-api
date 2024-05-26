@@ -44,8 +44,8 @@ class QueueClient:
 
     def _callback(
         self: Self,
-        message_callback: ICallBack,
-        fail_callback: ICallBack | None = None,
+        callback: ICallBack,
+        callback_fail: ICallBack | None = None,
         retry: int = 1,
     ):
         def wrapper(
@@ -64,7 +64,7 @@ class QueueClient:
             error: Exception | None = None
             for n in range(retry):
                 try:
-                    message_callback(message)
+                    callback(message)
                     error = None
                     break
                 except Exception as err:
@@ -72,10 +72,10 @@ class QueueClient:
                     time.sleep(n + 1.001)
             try:
                 if error:
-                    if fail_callback is None:
+                    if callback_fail is None:
                         raise error
                     message.error = error
-                    fail_callback(message)
+                    callback_fail(message)
             finally:
                 channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -109,8 +109,8 @@ class QueueClient:
             self._channel.basic_consume(
                 queue=settings.queue_name,
                 on_message_callback=self._callback(
-                    message_callback=callback,
-                    fail_callback=callback_fail,
+                    callback=callback,
+                    callback_fail=callback_fail,
                     retry=retry,
                 ),
             )
