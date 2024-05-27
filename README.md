@@ -1,5 +1,5 @@
 # PY RABBITMQ API
-Exemplo de projeto com utilização do Python com RabbitMQ.  
+Exemplo de projeto em Python consumindo e produzindo mensagens no RabbitMQ com multi-thread nativo.  
 Frameworks utilizados:
 - Pika
 - Pydantic
@@ -9,6 +9,7 @@ Frameworks utilizados:
 ## Dependencias
 - Python ~3.12
 - Docker ~24.0.5
+- Poetry ~1.8.2
 
 ## Como usar
 ### Instalar dependencias
