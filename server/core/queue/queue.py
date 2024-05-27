@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import time
 from types import TracebackType
-from typing import Self
+from typing import Self, Type
 
 import pika
-
-from server.core.settings import get_settings
 
 from .type import (
     BasicDeliver,
@@ -16,31 +14,47 @@ from .type import (
     QueueMessage,
 )
 
-settings = get_settings()
-
 
 class QueueClient:
     TOPIC_EXCHANGE_TYPE = "topic"
 
-    def __init__(self: Self):
+    def __init__(
+        self: Self,
+        host: str,
+        queue_name: str,
+        port: str = "5672",
+        exchange: str | None = None,
+        routing_key: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ):
+        self._queue_host = host
+        self._queue_name = queue_name
+        self._queue_port = port
+        self._queue_exchange = exchange
+        self._queue_routing_key = routing_key
+        self._queue_username = username
+        self._queue_password = password
+        # Flags
         self._active_connection = False
         self._active_consumer = False
+        self._active_producer = False
 
     def _queue_connection(self: Self):
         if self._active_connection is False:
             self._connection = pika.BlockingConnection(
                 pika.ConnectionParameters(
-                    host=settings.queue_host,
-                    port=settings.queue_port,
+                    host=self._queue_host,
+                    port=self._queue_port,
                     credentials=pika.PlainCredentials(
-                        username=settings.queue_username,
-                        password=settings.queue_password,
+                        username=self._queue_username,
+                        password=self._queue_password,
                     ),
                 )
             )
-            self._active_connection = True
             self._channel = self._connection.channel()
-            self._channel.queue_declare(queue=settings.queue_name, durable=True)
+            self._channel.queue_declare(queue=self._queue_name, durable=True)
+            self._active_connection = True
 
     def _callback(
         self: Self,
@@ -107,7 +121,7 @@ class QueueClient:
             self._queue_connection()
             self._channel.basic_qos(prefetch_count=1)
             self._channel.basic_consume(
-                queue=settings.queue_name,
+                queue=self._queue_name,
                 on_message_callback=self._callback(
                     callback=callback,
                     callback_fail=callback_fail,
@@ -118,28 +132,46 @@ class QueueClient:
             self._channel.start_consuming()
 
     def producer(self: Self, message: str):
-        self._queue_connection()
-        self._channel.exchange_declare(
-            exchange=settings.queue_exchange, exchange_type=self.TOPIC_EXCHANGE_TYPE
-        )
-        self._channel.queue_bind(
-            exchange=settings.queue_exchange,
-            queue=settings.queue_name,
-            routing_key=settings.queue_routing_key,
-        )
+        if self._active_producer is False:
+            self._queue_connection()
+            self._channel.exchange_declare(
+                exchange=self._queue_exchange, exchange_type=self.TOPIC_EXCHANGE_TYPE
+            )
+            self._channel.queue_bind(
+                exchange=self._queue_exchange,
+                queue=self._queue_name,
+                routing_key=self._queue_routing_key,
+            )
+            self._active_producer = True
         self._channel.basic_publish(
-            exchange=settings.queue_exchange,
-            routing_key=settings.queue_routing_key,
+            exchange=self._queue_exchange,
+            routing_key=self._queue_routing_key,
             body=message,
             properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent),
         )
 
     def close(self: Self):
+        self._active_producer = False
         if self._active_consumer is True:
             self._channel.stop_consuming()
             self._active_consumer = False
         self._connection.close()
         self._active_connection = False
+
+    @classmethod
+    def create_by_settings(cls: Type[QueueClient]) -> QueueClient:
+        from server.core.settings import get_settings
+
+        settings = get_settings()
+        return cls(
+            host=settings.queue_host,
+            port=settings.queue_port,
+            queue_name=settings.queue_name,
+            exchange=settings.queue_exchange,
+            routing_key=settings.queue_routing_key,
+            username=settings.queue_username,
+            password=settings.queue_password,
+        )
 
 
 __all__ = ("QueueClient",)

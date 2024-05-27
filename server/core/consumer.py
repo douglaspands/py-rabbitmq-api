@@ -1,15 +1,14 @@
-from threading import Thread
+import threading
 from typing import Self
 
 from typer import Typer
 
-from server.core import logging
 from server.core.queue import ICallBack, QueueClient
 
 app = Typer(name="consumer")
 
 
-class ConsumerWorkerThread(Thread):
+class ConsumerWorkerThread(threading.Thread):
     def __init__(
         self: Self,
         callback: ICallBack,
@@ -22,7 +21,7 @@ class ConsumerWorkerThread(Thread):
         self._callback_fail = callback_fail
 
     def run(self: Self):
-        with QueueClient() as client:
+        with QueueClient.create_by_settings() as client:
             client.consumer(
                 callback=self._callback,
                 callback_fail=self._callback_fail,
@@ -48,15 +47,10 @@ class ConsumerWorker:
             self._consumers.append(t)
 
     def run(self: Self):
-        logger = logging.get_logger("ConsumerWorker")
-        logger.info(" [*] Waiting for messages. To exit press CTRL+C")
-        try:
-            for c in self._consumers:
-                c.start()
-            for c in self._consumers:
-                c.join()
-        except KeyboardInterrupt:
-            logger.warning(" [*] User interrupted")
+        for c in self._consumers:
+            c.start()
+        for c in self._consumers:
+            c.join()
 
 
 __all__ = ("ConsumerWorker",)

@@ -1,5 +1,10 @@
 # PY RABBITMQ API
-Exemplo de projeto com utilização do Python com RabbitMQ.
+Exemplo de projeto com utilização do Python com RabbitMQ.  
+Frameworks utilizados:
+- Pika
+- Pydantic
+- Typer
+- SQLAlchemy (Em desenvolvimento)
 
 ## Dependencias
 - Python ~3.12
@@ -28,14 +33,21 @@ queue_password=guest
 docker compose -f rabbitmq.yaml up -d
 ```
 
-### Iniciar ConsumerWorker
+### Iniciar worker (Consumer)
 ```sh
-python app.py consumer start --workers 3
+python app.py consumer start --workers 3 --retry 2
 ```
-> `--workers 3` é a quantidade de threads de leitura da fila.
+> `--workers 3` é a quantidade de threads de leitura da fila;  
+> `--retry 2` é a quantidade de tentativas antes de disparar o callback de falha;  
 
-
-### Gerador de massa:
+### Gerador de massa (Producer)
 ```sh
 python app.py producer sends "teste send" --count 100
+```
+
+## RabbitMQ Management
+[http://localhost:15672](http://localhost:15672)
+```yaml
+Username: guest
+Password: guest
 ```
